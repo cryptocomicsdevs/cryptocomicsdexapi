@@ -17,6 +17,7 @@ Base = declarative_base()
 metadata = MetaData()
 metadata.reflect(bind=engine)
 pool_table = metadata.tables.get("pool_matrix")
+transactions_table = metadata.tables.get("recent_swaps")
 
 def get_db():
     db = SessionLocal()
