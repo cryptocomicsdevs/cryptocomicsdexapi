@@ -13,11 +13,19 @@ engine = create_engine(DATABASE_URL, pool_size=10, max_overflow=20)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# Reflect metadata once at startup
+# Reflect metadata once at startup with error handling
 metadata = MetaData()
-metadata.reflect(bind=engine)
-pool_table = metadata.tables.get("pool_matrix")
-transactions_table = metadata.tables.get("recent_swaps")
+pool_table = None
+transactions_table = None
+
+try:
+    metadata.reflect(bind=engine)
+    pool_table = metadata.tables.get("pool_matrix")
+    transactions_table = metadata.tables.get("recent_swaps")
+    print("Database connection successful - tables reflected")
+except Exception as e:
+    print(f"Database connection failed: {e}")
+    print("Server will start but database endpoints may not work")
 
 def get_db():
     db = SessionLocal()
