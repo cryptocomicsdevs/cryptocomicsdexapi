@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import Table
 from sqlalchemy.engine import Result
-from ..database import get_db, engine, pool_table, transactions_table
+from ..database import get_db, engine, pool_table, transactions_table, holders_table
 import time
 
 router = APIRouter(prefix="/api/v1", tags=["oroswappools"])
@@ -73,4 +73,26 @@ def get_pool_transactions(address: str, limit: int = 10 , offset: int = 0):
 
     except Exception as e:
         print("Error fetching transactions:", str(e))
+        return {"error": HTTPException(status_code=500, detail="Internal Server Error")}
+
+@router.get("/denom/holders/{denomaddress}", status_code=200)
+def get_denom_holders(denomaddress: str, limit: int = 10 , offset: int = 0):
+    start_time = time.time()
+    execution_time = 0.0
+
+    if holders_table is None:
+        return {"error": "Table not found"}
+
+    try:
+        with engine.connect() as conn:
+            result: Result = conn.execute(holders_table.select().where(holders_table.c.denom == denomaddress).limit(limit).offset(offset))
+            holders = [dict(row._mapping) for row in result]
+            execution_time = time.time() - start_time
+            count = len(holders)
+            print(f"Fetched {len(holders)} holders for denom {denomaddress} in {execution_time:.4f} seconds")
+
+        return {"holders": holders, "count": count, "execution_time": f"{execution_time:.4f}s"}
+
+    except Exception as e:
+        print("Error fetching holders:", str(e))
         return {"error": HTTPException(status_code=500, detail="Internal Server Error")}
