@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import Table
 from sqlalchemy.engine import Result
 from sqlalchemy.exc import OperationalError, DisconnectionError
-from ..database import get_db, engine, pool_table, transactions_table, holders_table
+from ..database import get_db, engine, pool_table, transactions_table, holders_table, pool_tick_table
 import time
 import logging
 
@@ -146,4 +146,38 @@ def get_denom_holders(denomaddress: str, limit: int = 10 , offset: int = 0, filt
             time.sleep(0.5 * retry_count)
         except Exception as e:
             print("Error fetching holders:", str(e))
+            raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+@router.get("/pool/ticker/{contractaddress}", status_code=200)
+def get_pool_ticker(contractaddress: str, limit: int = 10, offset: int = 0):
+    start_time = time.time()
+    execution_time = 0.0
+
+    if pool_table is None:
+        return {"error": "Table not found"}
+
+    retry_count = 0
+    max_retries = 3
+    
+    while retry_count < max_retries:
+        try:
+            with engine.connect() as conn:
+                result: Result = conn.execute(pool_tick_table.select().where(pool_tick_table.c.pair_contract == contractaddress).limit(limit).offset(offset))
+                pool = [dict(row._mapping) for row in result]
+                execution_time = time.time() - start_time
+                count = len(pool)
+                print(f"Fetched {len(pool)} pool tickers for pool {contractaddress} in {execution_time:.4f} seconds")
+
+            return {"pool": pool, "count": count, "execution_time": f"{execution_time:.4f}s"}
+
+        except (OperationalError, DisconnectionError) as e:
+            retry_count += 1
+            print(f"Database connection error (attempt {retry_count}/{max_retries}): {str(e)}")
+            if retry_count >= max_retries:
+                logging.error(f"Failed to fetch transactions for {address} after {max_retries} attempts: {str(e)}")
+                raise HTTPException(status_code=503, detail="Database temporarily unavailable")
+            time.sleep(0.5 * retry_count)
+        except Exception as e:
+            print("Error fetching transactions:", str(e))
             raise HTTPException(status_code=500, detail="Internal Server Error")

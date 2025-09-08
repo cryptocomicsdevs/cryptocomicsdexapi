@@ -30,12 +30,14 @@ metadata = MetaData()
 pool_table = None
 transactions_table = None
 holders_table = None
+pool_tick_table = None
 
 try:
     metadata.reflect(bind=engine)
     pool_table = metadata.tables.get("pool_matrix")
     transactions_table = metadata.tables.get("recent_swaps")
     holders_table = metadata.tables.get("token_holders")
+    pool_tick_table = metadata.tables.get("pair_ticks")   
     print("Database connection successful - tables reflected")
 except Exception as e:
     print(f"Database connection failed: {e}")
